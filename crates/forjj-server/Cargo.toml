@@ -1,0 +1,22 @@
+[package]
+name = "forjj-server"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "forjj"
+path = "src/main.rs"
+
+[dependencies]
+forjj-storage.workspace = true
+forjj-protocol.workspace = true
+axum.workspace = true
+tokio.workspace = true
+tower.workspace = true
+tower-http.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true

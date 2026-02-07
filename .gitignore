@@ -1,0 +1,19 @@
+# Build artifacts
+/target/
+/result
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Environment
+.env
+.envrc.local
+
+# Nix
+.direnv/
+
+# OS
+.DS_Store
