@@ -43,7 +43,7 @@ pub async fn read_frame<R: AsyncRead + Unpin>(reader: &mut R) -> Result<Vec<u8>,
     let len = match reader.read_u32().await {
         Ok(len) => len,
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-            return Err(FrameError::UnexpectedEof)
+            return Err(FrameError::UnexpectedEof);
         }
         Err(e) => return Err(FrameError::Io(e)),
     };
@@ -66,7 +66,7 @@ pub async fn read_frame_into<R: AsyncRead + Unpin>(
     let len = match reader.read_u32().await {
         Ok(len) => len,
         Err(e) if e.kind() == std::io::ErrorKind::UnexpectedEof => {
-            return Err(FrameError::UnexpectedEof)
+            return Err(FrameError::UnexpectedEof);
         }
         Err(e) => return Err(FrameError::Io(e)),
     };
@@ -124,7 +124,9 @@ mod tests {
 
         let mut cursor = Cursor::new(buffer);
         let mut read_buffer = [0u8; 256];
-        let len = read_frame_into(&mut cursor, &mut read_buffer).await.unwrap();
+        let len = read_frame_into(&mut cursor, &mut read_buffer)
+            .await
+            .unwrap();
 
         assert_eq!(&read_buffer[..len], message);
     }
