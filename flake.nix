@@ -60,8 +60,13 @@
         };
 
         # `nix run`
-        apps.default = flake-utils.lib.mkApp {
-          drv = forjj;
+        apps.default = {
+          type = "app";
+          program = "${forjj}/bin/forjj";
+          meta = {
+            description = "A native jj forge server";
+            mainProgram = "forjj";
+          };
         };
 
         # `nix flake check`

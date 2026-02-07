@@ -13,8 +13,12 @@ pub use jj_lib;
 
 #[cfg(test)]
 mod tests {
+    use super::*;
+
     #[test]
-    fn it_works() {
-        assert!(true);
+    fn object_id_hash_is_deterministic() {
+        let id1 = ObjectId::hash(b"test");
+        let id2 = ObjectId::hash(b"test");
+        assert_eq!(id1, id2);
     }
 }

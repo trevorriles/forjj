@@ -3,8 +3,8 @@
 //! jj uses BLAKE2b-256 for content addressing. These types wrap the raw bytes
 //! and provide convenience methods for hex encoding/decoding.
 
-use blake2::{Blake2b, Digest};
 use blake2::digest::consts::U32;
+use blake2::{Blake2b, Digest};
 
 type Blake2b256 = Blake2b<U32>;
 use serde::{Deserialize, Serialize};
@@ -134,7 +134,10 @@ mod tests {
     #[test]
     fn test_from_hex_invalid_length() {
         let result = ObjectId::from_hex("0123");
-        assert!(matches!(result, Err(ObjectIdError::InvalidHexLength { .. })));
+        assert!(matches!(
+            result,
+            Err(ObjectIdError::InvalidHexLength { .. })
+        ));
     }
 
     #[test]

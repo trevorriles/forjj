@@ -6,10 +6,10 @@
 pub mod framing;
 pub mod messages;
 
-pub use framing::{read_frame, write_frame, FrameError};
+pub use framing::{FrameError, read_frame, write_frame};
 pub use messages::{
-    Capability, FetchRequest, FetchResponse, HelloRequest, HelloResponse, PushRequest,
-    PushResult, PushStatus, RefUpdate,
+    Capability, FetchRequest, FetchResponse, HelloRequest, HelloResponse, PushRequest, PushResult,
+    PushStatus, RefUpdate,
 };
 
 /// Protocol version

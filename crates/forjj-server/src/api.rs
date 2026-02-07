@@ -1,12 +1,6 @@
 //! REST API handlers for Forjj.
 
-use axum::{
-    extract::Path,
-    http::StatusCode,
-    response::IntoResponse,
-    routing::{delete, get, post},
-    Json, Router,
-};
+use axum::{Json, Router, extract::Path, http::StatusCode, response::IntoResponse, routing::get};
 use serde::{Deserialize, Serialize};
 use tower_http::trace::TraceLayer;
 
@@ -53,6 +47,7 @@ struct RepoResponse {
 struct CreateRepoRequest {
     owner: String,
     name: String,
+    #[allow(dead_code)]
     description: Option<String>,
 }
 
