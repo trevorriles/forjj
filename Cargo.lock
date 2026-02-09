@@ -444,6 +444,7 @@ dependencies = [
  "hex",
  "jj-lib",
  "serde",
+ "tempfile",
  "thiserror",
  "tracing",
 ]
