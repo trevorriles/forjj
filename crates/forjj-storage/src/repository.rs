@@ -10,7 +10,11 @@ use anyhow::{Context, Result, bail};
 use jj_lib::backend::CommitId;
 use jj_lib::commit::Commit;
 use jj_lib::config::StackedConfig;
+use jj_lib::merged_tree::MergedTree;
+use jj_lib::op_store::OperationId;
+use jj_lib::operation::Operation;
 use jj_lib::repo::{ReadonlyRepo, Repo, StoreFactories};
+use jj_lib::repo_path::RepoPath;
 use jj_lib::settings::UserSettings;
 use jj_lib::workspace::{Workspace, default_working_copy_factories};
 use tracing::{debug, info};
@@ -110,9 +114,121 @@ impl Repository {
     }
 
     /// Get the current operation ID.
-    pub fn operation_id(&self) -> &jj_lib::op_store::OperationId {
+    pub fn operation_id(&self) -> &OperationId {
         self.repo.op_id()
     }
+
+    /// Get the current operation.
+    pub fn operation(&self) -> &Operation {
+        self.repo.operation()
+    }
+
+    /// Get the tree for a commit.
+    pub fn get_tree(&self, commit: &Commit) -> MergedTree {
+        commit.tree()
+    }
+
+    /// List all entries in a tree.
+    ///
+    /// Returns a vector of (path, kind) tuples for all entries in the tree.
+    /// Errors reading individual entries are skipped.
+    pub fn list_tree_entries(&self, tree: &MergedTree) -> Vec<TreeEntry> {
+        tree.entries()
+            .filter_map(|(path, value_result)| {
+                let value = value_result.ok()?;
+                let kind = if value.is_tree() {
+                    TreeEntryKind::Tree
+                } else if value.is_resolved() {
+                    TreeEntryKind::File // Simplified: treat resolved as file
+                } else {
+                    TreeEntryKind::Conflict
+                };
+                Some(TreeEntry {
+                    path: path.as_internal_file_string().to_string(),
+                    kind,
+                })
+            })
+            .collect()
+    }
+
+    /// Get file content as bytes (async version).
+    pub async fn read_file(
+        &self,
+        path: &RepoPath,
+        file_id: &jj_lib::backend::FileId,
+    ) -> Result<Vec<u8>> {
+        use tokio::io::AsyncReadExt;
+        let mut reader = self
+            .repo
+            .store()
+            .read_file(path, file_id)
+            .await
+            .context("failed to read file")?;
+        let mut content = Vec::new();
+        reader
+            .read_to_end(&mut content)
+            .await
+            .context("failed to read file content")?;
+        Ok(content)
+    }
+
+    /// Get all operation heads (for multi-head operation log).
+    pub async fn operation_heads(&self) -> Result<Vec<OperationId>> {
+        let op_heads = self
+            .repo
+            .op_heads_store()
+            .get_op_heads()
+            .await
+            .context("failed to get operation heads")?;
+        Ok(op_heads)
+    }
+
+    /// Check if this is a fresh repository with no user commits.
+    ///
+    /// A fresh jj repository has:
+    /// - A root commit (empty, parent of all commits)
+    /// - A working-copy commit (child of root, may be empty)
+    ///
+    /// This returns true if all heads are either the root or empty commits
+    /// with only the root as parent.
+    pub fn is_fresh(&self) -> bool {
+        let heads = self.heads();
+        let root_id = self.root_commit().id().clone();
+
+        heads.iter().all(|head_id| {
+            if *head_id == root_id {
+                return true;
+            }
+            // Check if this is an empty working-copy commit (child of root only)
+            if let Ok(commit) = self.get_commit(head_id) {
+                let parents = commit.parent_ids();
+                // Fresh working-copy commit has only root as parent
+                parents.len() == 1 && parents[0] == root_id
+            } else {
+                false
+            }
+        })
+    }
+}
+
+/// Entry in a tree.
+#[derive(Debug, Clone)]
+pub struct TreeEntry {
+    /// The path of the entry relative to the tree root.
+    pub path: String,
+    /// The kind of entry.
+    pub kind: TreeEntryKind,
+}
+
+/// Kind of tree entry.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TreeEntryKind {
+    /// Regular file
+    File,
+    /// Subdirectory
+    Tree,
+    /// Conflicted entry
+    Conflict,
 }
 
 /// Repository manager for creating and accessing repositories.
@@ -401,5 +517,57 @@ mod tests {
         // Get operation ID
         let op_id = repo.operation_id();
         assert!(!op_id.hex().is_empty());
+    }
+
+    #[test]
+    fn test_tree_operations() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = StorageConfig {
+            repos_root: temp_dir.path().to_path_buf(),
+        };
+        let manager = RepositoryManager::new(config).unwrap();
+
+        let repo = manager.create_repo("alice", "tree-test").unwrap();
+
+        // Get the root commit and its tree
+        let root = repo.root_commit();
+        let tree = repo.get_tree(&root);
+
+        // Root commit has an empty tree
+        let entries = repo.list_tree_entries(&tree);
+        assert!(entries.is_empty(), "root commit should have empty tree");
+    }
+
+    #[test]
+    fn test_operation_info() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = StorageConfig {
+            repos_root: temp_dir.path().to_path_buf(),
+        };
+        let manager = RepositoryManager::new(config).unwrap();
+
+        let repo = manager.create_repo("alice", "op-test").unwrap();
+
+        // Get current operation
+        let op = repo.operation();
+        assert!(!op.id().hex().is_empty());
+
+        // New repo should be fresh (no user commits)
+        assert!(repo.is_fresh());
+    }
+
+    #[tokio::test]
+    async fn test_operation_heads() {
+        let temp_dir = TempDir::new().unwrap();
+        let config = StorageConfig {
+            repos_root: temp_dir.path().to_path_buf(),
+        };
+        let manager = RepositoryManager::new(config).unwrap();
+
+        let repo = manager.create_repo("alice", "op-heads-test").unwrap();
+
+        // Get operation heads
+        let heads = repo.operation_heads().await.unwrap();
+        assert!(!heads.is_empty(), "should have at least one op head");
     }
 }
