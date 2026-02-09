@@ -7,6 +7,7 @@ pub mod object_id;
 pub mod repository;
 
 pub use object_id::{ChangeId, CommitId, FileId, ObjectId, OperationId, TreeId, ViewId};
+pub use repository::{BackendType, RepoInfo, Repository, RepositoryManager, StorageConfig};
 
 /// Re-export jj-lib for direct access when needed
 pub use jj_lib;
